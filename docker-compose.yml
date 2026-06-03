@@ -1,0 +1,235 @@
+# version: "3.8"
+
+services:
+  postgres:
+    image: postgres:16-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: task_dispatcher
+      POSTGRES_USER: dispatcher
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-dispatcher_secret}
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ./src/shared/init.sql:/docker-entrypoint-initdb.d/init.sql
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U dispatcher -d task_dispatcher"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  rabbitmq:
+    image: rabbitmq:3-management-alpine
+    restart: unless-stopped
+    environment:
+      RABBITMQ_DEFAULT_USER: ${RABBITMQ_USER:-guest}
+      RABBITMQ_DEFAULT_PASS: ${RABBITMQ_PASS:-guest}
+    ports:
+      - "5672:5672"
+      - "15672:15672"
+    healthcheck:
+      test: ["CMD", "rabbitmq-diagnostics", "check_port_connectivity"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  ollama:
+    image: ollama/ollama:latest
+    deploy:
+      resources:
+        reservations:
+          devices:
+          - driver: nvidia
+            count: all
+            capabilities: ["gpu"]
+    ports:
+      - "11434:11434"
+    volumes:
+      - ./src:/code
+      - ./mnt/ollama/ollama:/root/.ollama
+    pull_policy: always
+    tty: true
+    restart: "no"
+    environment:
+      - OLLAMA_KEEP_ALIVE=24h
+      - OLLAMA_HOST=0.0.0.0
+    healthcheck:
+      test: ["CMD-SHELL", "ollama list || exit 1"]
+      interval: 15s
+      timeout: 10s
+      retries: 5
+
+  librechat:
+    image: ghcr.io/danny-avila/librechat-dev:latest
+    ports:
+      - "${LIBRECHAT_PORT:-3080}:${LIBRECHAT_PORT:-3080}"
+    restart: unless-stopped
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    environment:
+      - HOST=0.0.0.0
+      - PORT=${LIBRECHAT_PORT:-3080}
+      - MONGO_URI=mongodb://librechat-mongodb:27017/LibreChat
+      - OLLAMA_BASE_URL=http://ollama:11434/v1
+      - ANTHROPIC_API_KEY=${ANTHROPIC_API_KEY}
+      - CREDS_KEY=${CREDS_KEY}
+      - CREDS_IV=${CREDS_IV}
+      - JWT_SECRET=${JWT_SECRET}
+      - JWT_REFRESH_SECRET=${JWT_REFRESH_SECRET}
+      - ALLOW_REGISTRATION=${ALLOW_REGISTRATION:-true}
+    depends_on:
+      - librechat-mongodb
+      - ollama
+      - mcp_task_registry
+    volumes:
+      - type: bind
+        source: ./src/librechat.yaml
+        target: /app/librechat.yaml
+      - librechat_images:/app/client/public/images
+      - librechat_uploads:/app/uploads
+
+  librechat-mongodb:
+    image: mongo:8.0.17
+    restart: unless-stopped
+    volumes:
+      - librechat_mongodb:/data/db
+    command: mongod --noauth
+
+  dbgate:
+    image: dbgate/dbgate:latest
+    restart: unless-stopped
+    ports:
+      - "8080:3000"
+    volumes:
+      - dbgate_data:/root/.dbgate
+    environment:
+      CONNECTIONS: con1,con2
+      LABEL_con1: PostgreSQL
+      SERVER_con1: postgres
+      USER_con1: dispatcher
+      PASSWORD_con1: ${POSTGRES_PASSWORD:-dispatcher_secret}
+      PORT_con1: 5432
+      DATABASE_con1: task_dispatcher
+      ENGINE_con1: postgres@dbgate-plugin-postgres
+      LABEL_con2: MongoDB (LibreChat)
+      URL_con2: mongodb://librechat-mongodb:27017/LibreChat
+      ENGINE_con2: mongo@dbgate-plugin-mongo
+    depends_on:
+      postgres:
+        condition: service_healthy
+
+  mcp_task_registry:
+    build:
+      context: ./src
+      dockerfile: mcp_task_registry/Dockerfile
+    restart: unless-stopped
+    ports:
+      - "8001:8001"
+    environment:
+      DATABASE_URL: postgresql://dispatcher:${POSTGRES_PASSWORD:-dispatcher_secret}@postgres:5432/task_dispatcher
+      RABBITMQ_URL: amqp://${RABBITMQ_USER:-guest}:${RABBITMQ_PASS:-guest}@rabbitmq:5672/
+      MCP_PORT: 8001
+      OTEL_SERVICE_NAME: mcp-task-registry
+      OTEL_EXPORTER_OTLP_ENDPOINT: http://jaeger:4317
+    depends_on:
+      postgres:
+        condition: service_healthy
+      rabbitmq:
+        condition: service_healthy
+      jaeger:
+        condition: service_started
+    volumes:
+      - ./src/shared:/app/shared
+
+  mcp_agent_gateway:
+    build:
+      context: ./src
+      dockerfile: mcp_agent_gateway/Dockerfile
+    restart: unless-stopped
+    ports:
+      - "8003:8003"
+    environment:
+      DATABASE_URL: postgresql://dispatcher:${POSTGRES_PASSWORD:-dispatcher_secret}@postgres:5432/task_dispatcher
+      RABBITMQ_URL: amqp://${RABBITMQ_USER:-guest}:${RABBITMQ_PASS:-guest}@rabbitmq:5672/
+      MCP_PORT: 8003
+      OTEL_SERVICE_NAME: mcp-agent-gateway
+      OTEL_EXPORTER_OTLP_ENDPOINT: http://jaeger:4317
+    depends_on:
+      postgres:
+        condition: service_healthy
+      rabbitmq:
+        condition: service_healthy
+      jaeger:
+        condition: service_started
+    volumes:
+      - ./src/shared:/app/shared
+
+  dispatcher:
+    build:
+      context: ./src
+      dockerfile: dispatcher/Dockerfile
+    restart: unless-stopped
+    environment:
+      DATABASE_URL: postgresql://dispatcher:${POSTGRES_PASSWORD:-dispatcher_secret}@postgres:5432/task_dispatcher
+      RABBITMQ_URL: amqp://${RABBITMQ_USER:-guest}:${RABBITMQ_PASS:-guest}@rabbitmq:5672/
+      MCP_REGISTRY_URL: http://mcp_task_registry:8001
+      ANTHROPIC_API_KEY: ${ANTHROPIC_API_KEY}
+      OLLAMA_HOST: http://ollama:11434
+      FILESERVER_BASE_URL: ${FILESERVER_BASE_URL:-http://localhost:8090}
+      SHARED_DATA_DIR: /srv/data
+      PUBLISH_SALT: ${PUBLISH_SALT:-}
+      OPENAI_API_KEY: ${OPENAI_API_KEY:-}
+      GOOGLE_API_KEY: ${GOOGLE_API_KEY:-}
+      AWS_ACCESS_KEY_ID: ${AWS_ACCESS_KEY_ID:-}
+      AWS_SECRET_ACCESS_KEY: ${AWS_SECRET_ACCESS_KEY:-}
+      AWS_REGION: ${AWS_REGION:-us-east-1}
+      QA_WORKSPACE_DIR: /srv/qa-workspaces
+      OTEL_SERVICE_NAME: dispatcher
+      OTEL_EXPORTER_OTLP_ENDPOINT: http://jaeger:4317
+    depends_on:
+      postgres:
+        condition: service_healthy
+      rabbitmq:
+        condition: service_healthy
+      ollama:
+        condition: service_healthy
+      jaeger:
+        condition: service_started
+      mcp_task_registry:
+        condition: service_started
+    volumes:
+      - ./src/dispatcher_agents:/app/agents
+      - ./src/dispatcher_tools:/app/tools
+      - ./src/dispatcher_skills:/app/skills
+      - ./src/models.yml:/app/models.yml
+      - ./mnt/shared-data:/srv/data
+      - ./qa-workspaces:/srv/qa-workspaces
+
+  jaeger:
+    image: jaegertracing/all-in-one:latest
+    ports:
+      - "16686:16686"
+      - "4317:4317"
+      - "4318:4318"
+    environment:
+      COLLECTOR_OTLP_ENABLED: "true"
+    volumes:
+      - ./src/jaeger-ui-config.json:/etc/jaeger/ui-config.json:ro
+    command: ["--query.ui-config=/etc/jaeger/ui-config.json"]
+    restart: unless-stopped
+
+  fileserver:
+    build: ./src/fileserver
+    restart: unless-stopped
+    ports:
+      - "8090:80"
+    volumes:
+      - ./mnt/shared-data:/srv/data
+
+volumes:
+  postgres_data:
+  librechat_mongodb:
+  librechat_images:
+  librechat_uploads:
+  dbgate_data:

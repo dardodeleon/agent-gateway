@@ -1,0 +1,12 @@
+[tool.pytest.ini_options]
+testpaths = ["test"]
+asyncio_mode = "auto"
+addopts = "-v --tb=long --junit-xml=junit-report.xml"
+filterwarnings = [
+    "ignore::UserWarning:pydantic",
+    "ignore::DeprecationWarning:deepeval",
+    "ignore::pytest.PytestUnraisableExceptionWarning",
+]
+markers = [
+    "integration: tests requiring Docker stack running",
+]

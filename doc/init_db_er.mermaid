@@ -1,0 +1,33 @@
+erDiagram
+    agents {
+        UUID id PK "DEFAULT uuid_generate_v4()"
+        VARCHAR(100) provider "NOT NULL, UNIQUE(provider,name)"
+        VARCHAR(100) name "NOT NULL, UNIQUE(provider,name)"
+        VARCHAR(200) display_name
+        TEXT description
+        JSONB tags "NOT NULL DEFAULT '[]', GIN index"
+        VARCHAR(20) status "NOT NULL DEFAULT 'active'"
+        VARCHAR(64) config_hash
+        TIMESTAMPTZ registered_at "NOT NULL DEFAULT NOW()"
+        TIMESTAMPTZ updated_at "NOT NULL DEFAULT NOW()"
+    }
+
+    tasks {
+        UUID id PK
+        VARCHAR(100) agent_provider "NOT NULL"
+        VARCHAR(100) agent_name "NOT NULL"
+        VARCHAR(30) status "NOT NULL DEFAULT 'pending'"
+        TIMESTAMPTZ created_at "NOT NULL DEFAULT NOW()"
+        TIMESTAMPTZ updated_at "NOT NULL DEFAULT NOW()"
+    }
+
+    task_messages {
+        UUID id PK "DEFAULT uuid_generate_v4()"
+        UUID task_id FK "NOT NULL, ON DELETE CASCADE"
+        VARCHAR(20) role "NOT NULL"
+        TEXT content "NOT NULL"
+        TIMESTAMPTZ created_at "NOT NULL DEFAULT NOW()"
+    }
+
+    agents ||--o{ tasks : "provider + name"
+    tasks ||--o{ task_messages : "task_id"

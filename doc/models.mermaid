@@ -1,0 +1,95 @@
+classDiagram
+    direction TB
+
+    %% ── Enums ──────────────────────────────────────────────
+    class AgentStatus {
+        <<enumeration>>
+        ACTIVE = "active"
+        INACTIVE = "inactive"
+        INTERNAL = "internal"
+        ERROR = "error"
+    }
+
+    class TaskStatus {
+        <<enumeration>>
+        PENDING = "pending"
+        ASSIGNED = "assigned"
+        COMPLETED = "completed"
+        ERROR = "error"
+    }
+
+    class MessageRole {
+        <<enumeration>>
+        USER = "user"
+        AGENT = "agent"
+        SYSTEM = "system"
+    }
+
+    %% ── Database Record Models ─────────────────────────────
+    class AgentRecord {
+        <<BaseModel>>
+        +UUID id
+        +str provider
+        +str name
+        +str? display_name
+        +str? description
+        +list~str~ tags
+        +AgentStatus status
+        +str? config_hash
+        +datetime registered_at
+        +datetime updated_at
+    }
+
+    class TaskRecord {
+        <<BaseModel>>
+        +UUID id
+        +str agent_provider
+        +str agent_name
+        +TaskStatus status
+        +datetime created_at
+        +datetime updated_at
+    }
+
+    class TaskMessageRecord {
+        <<BaseModel>>
+        +UUID id
+        +UUID task_id
+        +MessageRole role
+        +str content
+        +datetime created_at
+    }
+
+    %% ── RabbitMQ Message Models ────────────────────────────
+    class NewTaskMessage {
+        <<BaseModel · RabbitMQ>>
+        +str event = "new_task"
+        +UUID task_id
+        +str agent_provider
+        +str agent_name
+        +datetime timestamp
+    }
+
+    class AgentChangeMessage {
+        <<BaseModel · RabbitMQ>>
+        +str event
+        +str provider
+        +str name
+        +str? display_name
+        +str? description
+        +list~str~ tags
+        +str? status
+        +str? config_hash
+        +datetime timestamp
+    }
+
+    %% ── Relationships ──────────────────────────────────────
+    AgentRecord --> AgentStatus : status
+    TaskRecord --> TaskStatus : status
+    TaskMessageRecord --> MessageRole : role
+
+    AgentRecord "1" --o "*" TaskRecord : provider + name
+    TaskRecord "1" --o "*" TaskMessageRecord : task_id
+
+    NewTaskMessage ..> TaskRecord : references
+    NewTaskMessage ..> AgentRecord : references agent
+    AgentChangeMessage ..> AgentRecord : notifies changes

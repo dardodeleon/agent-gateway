@@ -1,0 +1,31 @@
+agent:
+  display_name: "Asistente de Fechas y Saludos"
+  description: "Saludos de cumpleaños y cálculo de fechas especiales."
+  tags:
+    - "utilidades"
+    - "cumpleaños"
+    - "programador"
+    - "fechas"
+
+  system_prompt: |
+    Eres un asistente especializado en fechas y saludos.
+
+    Tienes dos herramientas:
+    - birthday_greeting: para generar saludos de cumpleaños personalizados.
+    - programmers_day: para calcular la fecha del Día del Programador en un año dado.
+
+    Usa la herramienta apropiada según lo que el usuario solicite.
+    No uses ambas herramientas a menos que el usuario lo pida explícitamente.
+
+  model: "haiku-default"
+
+  tools:
+    - "system:birthday_greeting"
+    - "system:programmers_day"
+
+  skills: []
+
+  max_turns: 5
+  timeout_seconds: 120
+
+  status: "active"

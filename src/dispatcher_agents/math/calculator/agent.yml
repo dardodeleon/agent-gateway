@@ -1,0 +1,25 @@
+agent:
+  display_name: "Calculadora"
+  description: "Cálculos matemáticos y evaluación de expresiones."
+  tags:
+    - "math"
+    - "calculator"
+    - "tools"
+
+  system_prompt: |
+    Eres un agente calculadora. Tu propósito es resolver expresiones
+    matemáticas y problemas numéricos.
+    Usa la herramienta calculator para evaluar expresiones matemáticas.
+    Muestra el proceso de resolución paso a paso cuando sea apropiado.
+
+  model: "haiku-default"
+
+  tools:
+    - "strands:calculator"
+
+  skills: []
+
+  max_turns: 5
+  timeout_seconds: 120
+
+  status: "active"

@@ -1,0 +1,138 @@
+models:
+
+  # Ollama (local) 
+
+  llama3-default:
+    provider: ollama
+    model_id: llama3.2
+    host: http://ollama:11434
+    temperature: 0.7
+    max_tokens: 4096
+
+  llama3-precise:
+    provider: ollama
+    model_id: llama3.2:latest
+    host: http://ollama:11434
+    temperature: 0.1
+    max_tokens: 4096
+
+  qwen-default:
+    provider: ollama
+    model_id: qwen2.5:7b
+    host: http://ollama:11434
+    temperature: 0.7
+    max_tokens: 8192
+
+  qwen-qa:
+    provider: ollama
+    model_id: qwen2.5:7b
+    host: http://ollama:11434
+    temperature: 0.7
+    max_tokens: 8192
+
+  deepseek-coder:
+    provider: ollama
+    model_id: deepseek-coder-v2
+    host: http://ollama:11434
+    temperature: 0.3
+    max_tokens: 8192
+
+  # Anthropic (ANTHROPIC_API_KEY) 
+
+  haiku-default:
+    provider: anthropic
+    model_id: claude-haiku-4-5-20251001
+    temperature: 0.7
+    max_tokens: 4096
+
+  sonnet-default:
+    provider: anthropic
+    model_id: claude-sonnet-4-5-20250929
+    temperature: 0.5
+    max_tokens: 8192
+
+  opus-default:
+    provider: anthropic
+    model_id: claude-opus-4-6
+    temperature: 0.3
+    max_tokens: 8192
+
+  haiku-creative:
+    provider: anthropic
+    model_id: claude-haiku-4-5-20251001
+    temperature: 1.0
+    max_tokens: 4096
+
+  sonnet-precise:
+    provider: anthropic
+    model_id: claude-sonnet-4-5-20250929
+    temperature: 0.1
+    max_tokens: 8192
+
+  # Amazon Bedrock (AWS_ACCESS_KEY_ID, AWS_SECRET_ACCESS_KEY y AWS_REGION)
+
+  bedrock-claude-sonnet:
+    provider: bedrock
+    model_id: us.anthropic.claude-sonnet-4-20250514
+    region_name: us-east-1
+    temperature: 0.7
+    max_tokens: 4096
+
+  bedrock-llama3:
+    provider: bedrock
+    model_id: us.meta.llama3-2-90b-instruct-v1:0
+    region_name: us-east-1
+    temperature: 0.7
+    max_tokens: 4096
+
+  bedrock-titan:
+    provider: bedrock
+    model_id: amazon.titan-text-premier-v1:0
+    region_name: us-east-1
+    temperature: 0.7
+    max_tokens: 4096
+
+  # OpenAI (OPENAI_API_KEY) 
+  
+  gpt4o-default:
+    provider: openai
+    model_id: gpt-4o
+    temperature: 0.7
+    max_tokens: 4096
+
+  gpt4o-mini:
+    provider: openai
+    model_id: gpt-4o-mini
+    temperature: 0.7
+    max_tokens: 4096
+
+  o1-default:
+    provider: openai
+    model_id: o1
+    temperature: 1.0
+    max_tokens: 8192
+
+  # Google Gemini (GOOGLE_API_KEY) 
+
+  gemini-flash:
+    provider: gemini
+    model_id: gemini-2.5-flash
+    temperature: 0.7
+    max_tokens: 4096
+
+  gemini-pro:
+    provider: gemini
+    model_id: gemini-2.5-pro
+    temperature: 0.5
+    max_tokens: 8192
+
+#  Swarm defaults 
+# https://strandsagents.com/latest/documentation/docs/user-guide/concepts/multi-agent/swarm/#how-swarms-work
+ 
+swarm_defaults:
+  max_handoffs: 20
+  max_iterations: 20
+  execution_timeout: 900.0
+  node_timeout: 300.0
+  repetitive_handoff_detection_window: 8
+  repetitive_handoff_min_unique_agents: 3

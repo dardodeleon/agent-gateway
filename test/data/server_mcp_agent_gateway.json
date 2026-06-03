@@ -1,0 +1,20 @@
+{
+  "url": "http://localhost:8003/mcp",
+  "expected_tool_names": ["send_task", "get_task_status"],
+  "test_agents": [
+    {
+      "provider": "custom",
+      "name": "calculator",
+      "description": "Calculadora matemática",
+      "tags": ["math"],
+      "status": "active"
+    },
+    {
+      "provider": "custom",
+      "name": "writer",
+      "description": "Escritor de textos",
+      "tags": ["text"],
+      "status": "active"
+    }
+  ]
+}
